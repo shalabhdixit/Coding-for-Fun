@@ -1,0 +1,246 @@
+openapi: 3.0.3
+info:
+  title: Apple Pay Payment API
+  description: |
+    Processes Apple Pay wallet payments for e-commerce orders.
+
+    **Security notes:**
+    - All requests require a Bearer token with the `payments:write` scope.
+    - Payment tokens are never logged (PCI DSS Req 3.4 / Req 10.3).
+    - An `Idempotency-Key` header is sent automatically per request to prevent
+      duplicate charges on retry.
+    - The API endpoint must be served over HTTPS.
+  version: 1.0.0
+  contact:
+    name: Payments Team
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+
+security:
+  - BearerAuth:
+      - payments:write
+
+paths:
+  /payments/apple-pay:
+    post:
+      operationId: processApplePayPayment
+      summary: Process an Apple Pay payment
+      description: |
+        Validates the Apple Pay token, charges the given amount, and returns
+        a payment confirmation. The underlying implementation retries transient
+        network errors up to three times with exponential back-off.
+
+        Supported currencies: `usd`, `eur`, `gbp`, `cad`, `aud`.
+        Maximum transaction amount: **$10,000.00** (or equivalent).
+      tags:
+        - Payments
+      security:
+        - BearerAuth:
+            - payments:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplePayRequest'
+            examples:
+              success_request:
+                summary: Valid payment request
+                value:
+                  order_id: "ord_9f3a2b1c"
+                  apple_pay_token: "apay_tok_live_abc123xyz789qrst"
+                  amount: 149.99
+                  currency: "usd"
+              declined_request:
+                summary: Payment that will be declined (insufficient funds)
+                value:
+                  order_id: "ord_7e1d4f2a"
+                  apple_pay_token: "apay_tok_live_declined_test01"
+                  amount: 2500.00
+                  currency: "usd"
+      responses:
+        '200':
+          description: Payment processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSuccessResponse'
+              examples:
+                success_response:
+                  summary: Successful payment confirmation
+                  value:
+                    payment_id: "pay_8d2e1f7b4c9a"
+                    status: "success"
+                    timestamp: 1713312000
+        '400':
+          description: Bad Request - the request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_token:
+                  summary: Invalid apple_pay_token format
+                  value:
+                    error_code: "INVALID_TOKEN"
+                    message: "Invalid Apple Pay token: must start with 'apay_tok_' and be at least 20 characters"
+                    retry_after: null
+        '402':
+          description: Payment Required - the charge was declined by the issuer or Apple Pay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                declined:
+                  summary: Card declined - insufficient funds
+                  value:
+                    error_code: "PAYMENT_DECLINED"
+                    message: "Payment declined: insufficient funds"
+                    retry_after: null
+        '429':
+          description: Too Many Requests - the client has exceeded the rate limit.
+          headers:
+            Retry-After:
+              description: Number of seconds the client must wait before retrying.
+              schema:
+                type: integer
+                example: 60
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                rate_limit:
+                  summary: Rate limit exceeded
+                  value:
+                    error_code: "RATE_LIMIT_EXCEEDED"
+                    message: "Too many requests. Please slow down."
+                    retry_after: 60
+        '500':
+          description: Payment processing failed after all retry attempts were exhausted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                processing_failed:
+                  summary: Payment processing failed after retries
+                  value:
+                    error_code: "PROCESSING_FAILED"
+                    message: "Payment processing failed after retries"
+                    retry_after: null
+        '503':
+          description: Apple Pay upstream API is temporarily unavailable.
+          headers:
+            Retry-After:
+              description: Number of seconds before the service is expected to recover.
+              schema:
+                type: integer
+                example: 30
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                upstream_unavailable:
+                  summary: Apple Pay API temporarily unavailable
+                  value:
+                    error_code: "UPSTREAM_UNAVAILABLE"
+                    message: "Apple Pay API is temporarily unavailable. Please try again shortly."
+                    retry_after: 30
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer token. The token must include the `payments:write` scope.
+
+  schemas:
+    ApplePayRequest:
+      type: object
+      required:
+        - order_id
+        - apple_pay_token
+        - amount
+        - currency
+      properties:
+        order_id:
+          type: string
+          description: Unique identifier of the pending order.
+          minLength: 1
+          example: "ord_9f3a2b1c"
+        apple_pay_token:
+          type: string
+          description: Wallet token issued by the Apple Pay SDK. Must start with `apay_tok_`.
+          minLength: 20
+          pattern: '^apay_tok_.+'
+          example: "apay_tok_live_abc123xyz789qrst"
+        amount:
+          type: number
+          format: double
+          description: Charge amount in major currency units.
+          exclusiveMinimum: 0
+          maximum: 10000.00
+          example: 149.99
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+          enum:
+            - usd
+            - eur
+            - gbp
+            - cad
+            - aud
+          example: "usd"
+
+    PaymentSuccessResponse:
+      type: object
+      required:
+        - payment_id
+        - status
+        - timestamp
+      properties:
+        payment_id:
+          type: string
+          description: Unique identifier assigned to the completed payment.
+          example: "pay_8d2e1f7b4c9a"
+        status:
+          type: string
+          enum:
+            - success
+          example: "success"
+        timestamp:
+          type: integer
+          format: int64
+          example: 1713312000
+
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+          enum:
+            - INVALID_TOKEN
+            - INVALID_AMOUNT
+            - INVALID_CURRENCY
+            - MISSING_FIELDS
+            - PAYMENT_DECLINED
+            - RATE_LIMIT_EXCEEDED
+            - PROCESSING_FAILED
+            - UPSTREAM_UNAVAILABLE
+          example: "INVALID_TOKEN"
+        message:
+          type: string
+          example: "Invalid Apple Pay token: must start with 'apay_tok_' and be at least 20 characters"
+        retry_after:
+          type: integer
+          nullable: true
+          example: 60

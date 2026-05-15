@@ -1,0 +1,41 @@
+{
+  "passed": 7,
+  "total": 7,
+  "results": [
+    {
+      "name": "Architecture discovery",
+      "passed": true,
+      "detail": "Strategy pattern classes present: PaymentProcessor, AbstractPaymentMethod, ApplePayPaymentMethod."
+    },
+    {
+      "name": "Implementation contract",
+      "passed": true,
+      "detail": "Apple Pay method exposes processing, validation, refund, retry, and idempotency behavior."
+    },
+    {
+      "name": "Technical debt guardrail",
+      "passed": true,
+      "detail": "Known legacy debt is registered, and Apple Pay avoids hardcoded secrets plus raw payment-token logging."
+    },
+    {
+      "name": "API documentation",
+      "passed": true,
+      "detail": "OpenAPI spec includes endpoint, bearer auth, schemas, examples, retry headers, and expected errors."
+    },
+    {
+      "name": "BDD test contract",
+      "passed": true,
+      "detail": "BDD suite defines 10 Apple Pay scenarios with pytest-bdd step definitions."
+    },
+    {
+      "name": "Living README/docs",
+      "passed": true,
+      "detail": "README and generated quality-gate docs match the current source digest."
+    },
+    {
+      "name": "GitHub workflow",
+      "passed": true,
+      "detail": "Workflow runs on all branch pushes, generates docs, validates gates, runs tests, and can commit docs."
+    }
+  ]
+}
