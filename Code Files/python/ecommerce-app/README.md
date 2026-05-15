@@ -147,7 +147,7 @@ This repository includes an end-to-end GitHub Actions demo that mirrors the five
 | Technical debt guardrail | Requires the legacy security debt ticket while preventing new Apple Pay secret or raw-token logging regressions. |
 | BDD test contract | Runs 10 Apple Pay scenarios covering happy path, validation, retries, timeout, and rollback. |
 | API documentation | Validates docs/api/apple-pay-openapi.yaml for auth, schemas, examples, retry headers, and error responses. |
-| Living README | This section is regenerated from source digest `f635b98e183ebfb0` on every workflow run. |
+| Living README | This section is regenerated from source digest `62de942a86247a97` on every workflow run. |
 | HTML execution report | Publishes a self-contained debugging report with gate results, file inventory, raw logs, and troubleshooting guidance. |
 
 **Current Apple Pay scenario map:** Successful Apple Pay payment processing, Payment rejected due to invalid Apple Pay token format, Payment rejected due to expired Apple Pay token, Apple Pay API recovers after transient failures, plus 6 more.
@@ -161,7 +161,7 @@ Workflow entry points:
 - `.github/workflows/integrated-ai-demo-quality-gates.yml` when `ecommerce-app` is the repository root
 - `../../../.github/workflows/python-integrated-ai-demo-quality-gates.yml` when the full workshop folder is the repository root
 
-Source digest: `f635b98e183ebfb0`
+Source digest: `62de942a86247a97`
 <!-- AI-DEMO-DOCS:END -->
 
 ## License
